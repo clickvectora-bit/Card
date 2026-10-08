@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-    <title>PDF Web Page Viewer - Two Page Spread</title>
+    <title>PDF Responsive Web Viewer</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- PDF.js library to render PDF on HTML Canvas -->
@@ -27,14 +27,14 @@
 <body class="h-full bg-slate-100 text-slate-800 flex flex-col overflow-hidden">
 
   <!-- Header Navigation -->
-  <header class="h-16 bg-white border-b border-slate-200 px-4 flex items-center justify-between z-30 shrink-0 shadow-sm">
+  <header class="h-16 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between z-30 shrink-0 shadow-sm">
     <div class="flex items-center space-x-3">
-      <h1 class="font-bold text-slate-900 text-sm sm:text-base"><i class="fa-solid fa-file-pdf text-indigo-600 mr-2"></i>PDF Dual-Page Viewer</h1>
+      <h1 class="font-bold text-slate-900 text-sm sm:text-base"><i class="fa-solid fa-file-pdf text-indigo-600 mr-2"></i>PDF Web Viewer</h1>
     </div>
 
     <!-- Controls: Download Button -->
     <div class="flex items-center space-x-3">
-      <button onclick="downloadPDFWithProgress()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium text-xs shadow-md flex items-center space-x-1.5 transition">
+      <button onclick="downloadPDFWithProgress()" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium text-xs shadow-md flex items-center space-x-1.5 transition">
         <i class="fa-solid fa-download"></i>
         <span>Download PDF</span>
       </button>
@@ -44,22 +44,22 @@
   <!-- App Layout Container -->
   <div class="flex-1 flex overflow-hidden relative">
     
-    <!-- Main Workspace Area where two PDF pages render side-by-side on Canvases -->
-    <main class="flex-1 bg-slate-200/70 checkerboard relative flex items-center justify-center overflow-hidden" id="workspaceContainer">
-      <div id="canvasViewport" class="absolute inset-0 flex items-center justify-center overflow-auto p-4">
-        <div id="canvasWrapper" class="relative shadow-2xl bg-white rounded-lg overflow-hidden border border-slate-300 flex items-center justify-center p-3 space-x-4">
-          <canvas id="pdfCanvas1" class="max-w-full max-h-full object-contain"></canvas>
-          <canvas id="pdfCanvas2" class="max-w-full max-h-full object-contain hidden"></canvas>
+    <!-- Main Workspace Area with ample padding from all sides -->
+    <main class="flex-1 bg-slate-200/70 checkerboard relative flex items-center justify-center overflow-hidden p-4 sm:p-8" id="workspaceContainer">
+      <div id="canvasViewport" class="absolute inset-4 sm:inset-8 flex items-center justify-center overflow-auto p-2">
+        <div id="canvasWrapper" class="relative shadow-2xl bg-white rounded-xl overflow-hidden border border-slate-300 flex items-center justify-center p-3 sm:p-4 gap-4 max-w-full max-h-full">
+          <canvas id="pdfCanvas1" class="max-w-full max-h-full object-contain shadow-sm"></canvas>
+          <canvas id="pdfCanvas2" class="max-w-full max-h-full object-contain shadow-sm hidden"></canvas>
         </div>
       </div>
 
-      <!-- Page Switching Widget (Advances by 2 pages) -->
-      <div class="absolute bottom-6 bg-white/90 backdrop-blur border border-slate-200 rounded-2xl px-4 py-2.5 shadow-xl z-20 flex items-center space-x-4">
-        <button onclick="changePage(-2)" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition">
+      <!-- Page Switching Widget -->
+      <div class="absolute bottom-6 bg-white/95 backdrop-blur border border-slate-200 rounded-2xl px-4 py-2.5 shadow-xl z-20 flex items-center space-x-4">
+        <button onclick="changePage(-stepCount)" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition">
           <i class="fa-solid fa-chevron-left text-xs"></i>
         </button>
-        <span class="text-xs font-semibold text-slate-700">Pages <span id="currentPageNum">1-2</span> of <span id="totalPageCount">1</span></span>
-        <button onclick="changePage(2)" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition">
+        <span class="text-xs font-semibold text-slate-700">Page <span id="currentPageNum">1</span> of <span id="totalPageCount">1</span></span>
+        <button onclick="changePage(stepCount)" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition">
           <i class="fa-solid fa-chevron-right text-xs"></i>
         </button>
       </div>
@@ -92,13 +92,21 @@
     let ctx2 = canvas2.getContext('2d');
 
     // Default pre-loaded PDF file path or URL
-    const defaultPdfUrl = 'card 1.pdf'; 
+    const defaultPdfUrl = 'your-file.pdf'; 
+
+    // Determine step count: 1 page for mobile screens (< 768px), 2 pages for desktop side-by-side
+    let stepCount = window.innerWidth < 768 ? 1 : 2;
 
     window.onload = function() {
       loadPDFWithProgress(defaultPdfUrl);
     };
 
     window.onresize = function() {
+      let newStep = window.innerWidth < 768 ? 1 : 2;
+      if (newStep !== stepCount) {
+        stepCount = newStep;
+        pageNum = 1; // Reset to start when switching view modes
+      }
       if (pdfDoc) {
         renderPages(pageNum);
       }
@@ -150,13 +158,21 @@
       }
     }
 
-    // Render two pages side-by-side simultaneously
+    // Render pages dynamically based on screen width (1 for mobile, 2 for desktop)
     async function renderPages(num) {
       if (!pdfDoc) return;
 
+      stepCount = window.innerWidth < 768 ? 1 : 2;
       const viewportContainer = document.getElementById('workspaceContainer');
-      const containerWidth = (viewportContainer.clientWidth - 80) / 2; // Split width for two pages
-      const containerHeight = viewportContainer.clientHeight - 60;
+      
+      let containerWidth, containerHeight;
+      if (stepCount === 2) {
+        containerWidth = (viewportContainer.clientWidth - 90) / 2;
+        containerHeight = viewportContainer.clientHeight - 80;
+      } else {
+        containerWidth = viewportContainer.clientWidth - 50;
+        containerHeight = viewportContainer.clientHeight - 80;
+      }
 
       // Render Page 1
       const page1 = await pdfDoc.getPage(num);
@@ -172,8 +188,8 @@
 
       let displayEndNum = num;
 
-      // Render Page 2 if it exists within total page count
-      if (num + 1 <= pdfDoc.numPages) {
+      // Render Page 2 if stepCount is 2 and second page exists
+      if (stepCount === 2 && num + 1 <= pdfDoc.numPages) {
         canvas2.classList.remove('hidden');
         const page2 = await pdfDoc.getPage(num + 1);
         const unscaledV2 = page2.getViewport({ scale: 1.0 });
@@ -187,11 +203,10 @@
         await page2.render({ canvasContext: ctx2, viewport: viewport2 }).promise;
         displayEndNum = num + 1;
       } else {
-        // Hide second canvas if there is no second page (e.g. last odd page)
         canvas2.classList.add('hidden');
       }
 
-      // Update label text
+      // Update page indicator text
       if (num === displayEndNum) {
         document.getElementById('currentPageNum').textContent = num;
       } else {
@@ -202,7 +217,8 @@
     function changePage(val) {
       if (!pdfDoc) return;
       let newPage = pageNum + val;
-      if (newPage < 1 || newPage > pdfDoc.numPages) return;
+      if (newPage < 1) newPage = 1;
+      if (newPage > pdfDoc.numPages) return;
       pageNum = newPage;
       renderPages(pageNum);
     }
