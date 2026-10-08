@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-    <title>PDF Web Viewer - Spaced Original Pages</title>
+    <title>PDF Responsive Web Viewer</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- PDF.js library to render PDF on HTML Canvas -->
@@ -29,7 +29,7 @@
   <!-- Header Navigation -->
   <header class="h-16 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between z-30 shrink-0 shadow-sm">
     <div class="flex items-center space-x-3">
-      <h1 class="font-bold text-slate-900 text-sm sm:text-base"><i class="fa-solid fa-file-pdf text-indigo-600 mr-2"></i>PDF Web Viewer</h1>
+      <h1 class="font-bold text-slate-900 text-sm sm:text-base"><i class="fa-solid fa-file-pdf text-indigo-600 mr-2"></i>PDF Responsive Viewer</h1>
     </div>
 
     <!-- Controls: Download Button -->
@@ -47,7 +47,7 @@
     <!-- Main Workspace Area with proper padding from all sides -->
     <main class="flex-1 bg-slate-200/70 checkerboard relative flex items-center justify-center overflow-auto p-4 sm:p-10" id="workspaceContainer">
       <div id="canvasViewport" class="min-h-full min-w-full flex items-center justify-center p-4">
-        <!-- Added explicit gap-6 (or gap-8) between canvas elements for spacing -->
+        <!-- Canvas Wrapper with gap spacing between pages -->
         <div id="canvasWrapper" class="relative flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-8 p-2 max-w-full">
           <div class="bg-white p-2 shadow-2xl rounded-xl border border-slate-300 flex items-center justify-center">
             <canvas id="pdfCanvas1" class="max-w-full object-contain block"></canvas>
@@ -97,24 +97,29 @@
     let ctx2 = canvas2.getContext('2d');
     let canvasContainer2 = document.getElementById('canvasContainer2');
 
-    const defaultPdfUrl = 'card 1.pdf'; 
+    // Default pre-loaded PDF file path or URL
+    const defaultPdfUrl = 'your-file.pdf'; 
+    
+    // 1 page for mobile screens (< 768px), 2 pages side-by-side for tablets/desktops
     let stepCount = window.innerWidth < 768 ? 1 : 2;
 
     window.onload = function() {
       loadPDFWithProgress(defaultPdfUrl);
     };
 
+    // Re-render pages dynamically if the window size changes
     window.onresize = function() {
       let newStep = window.innerWidth < 768 ? 1 : 2;
       if (newStep !== stepCount) {
         stepCount = newStep;
-        pageNum = 1; 
+        pageNum = 1; // Reset to start when switching layout mode
       }
       if (pdfDoc) {
         renderPages(pageNum);
       }
     };
 
+    // Show Progress Popup Modal
     function showModal(title, desc) {
       document.getElementById('modalTitle').textContent = title;
       document.getElementById('modalDesc').textContent = desc;
@@ -123,15 +128,18 @@
       document.getElementById('progressModal').classList.remove('hidden');
     }
 
+    // Update Progress Bar
     function updateProgress(percent) {
       document.getElementById('progressBar').style.width = percent + '%';
       document.getElementById('progressText').textContent = percent + '%';
     }
 
+    // Hide Progress Popup Modal
     function hideModal() {
       document.getElementById('progressModal').classList.add('hidden');
     }
 
+    // Load PDF automatically with progress tracking
     async function loadPDFWithProgress(url) {
       showModal("Loading PDF", "Fetching document to display on page...");
       
@@ -161,6 +169,7 @@
       }
     }
 
+    // Render pages dynamically based on screen bounds and responsive mode
     async function renderPages(num) {
       if (!pdfDoc) return;
 
@@ -176,7 +185,7 @@
         maxH = workspace.clientHeight - 120;
       }
 
-      // Render Page 1 with original proportions
+      // Render Page 1 maintaining original ratio
       const page1 = await pdfDoc.getPage(num);
       const unscaled1 = page1.getViewport({ scale: 1.0 });
       let scale1 = Math.min(maxW / unscaled1.width, maxH / unscaled1.height);
@@ -188,7 +197,7 @@
 
       let displayEndNum = num;
 
-      // Render Page 2 if enabled and available
+      // Render Page 2 if dual mode is active and second page exists
       if (stepCount === 2 && num + 1 <= pdfDoc.numPages) {
         canvasContainer2.classList.remove('hidden');
         const page2 = await pdfDoc.getPage(num + 1);
@@ -204,6 +213,7 @@
         canvasContainer2.classList.add('hidden');
       }
 
+      // Update page indicator text
       if (num === displayEndNum) {
         document.getElementById('currentPageNum').textContent = num;
       } else {
@@ -220,6 +230,7 @@
       renderPages(pageNum);
     }
 
+    // Download PDF with progress popup tracking
     async function downloadPDFWithProgress() {
       showModal("Preparing Download", "Fetching file for download...");
       updateProgress(20);
