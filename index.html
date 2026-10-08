@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-    <title>PDF Web Page Viewer with Progress Popup</title>
+    <title>PDF Web Page Viewer - Fit to Screen</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- PDF.js library to render PDF on HTML Canvas -->
@@ -47,8 +47,8 @@
     <!-- Main Workspace Area where PDF renders on Canvas -->
     <main class="flex-1 bg-slate-200/70 checkerboard relative flex items-center justify-center overflow-hidden" id="workspaceContainer">
       <div id="canvasViewport" class="absolute inset-0 flex items-center justify-center overflow-auto p-4">
-        <div id="canvasWrapper" class="relative shadow-2xl bg-white rounded-lg overflow-hidden border border-slate-300">
-          <canvas id="pdfCanvas"></canvas>
+        <div id="canvasWrapper" class="relative shadow-2xl bg-white rounded-lg overflow-hidden border border-slate-300 flex items-center justify-center">
+          <canvas id="pdfCanvas" class="max-w-full max-h-full object-contain"></canvas>
         </div>
       </div>
 
@@ -85,7 +85,6 @@
   <script>
     let pdfDoc = null;
     let pageNum = 1;
-    let scale = 1.2;
     let canvas = document.getElementById('pdfCanvas');
     let ctx = canvas.getContext('2d');
 
@@ -94,6 +93,13 @@
 
     window.onload = function() {
       loadPDFWithProgress(defaultPdfUrl);
+    };
+
+    // Re-render current page dynamically if the window size changes to maintain full-screen fit
+    window.onresize = function() {
+      if (pdfDoc) {
+        renderPage(pageNum);
+      }
     };
 
     // Show Progress Popup Modal
@@ -116,20 +122,18 @@
       document.getElementById('progressModal').classList.add('hidden');
     }
 
-    // Load PDF automatically with progress tracking via PDF.js
+    // Load PDF automatically with progress tracking
     async function loadPDFWithProgress(url) {
       showModal("Loading PDF", "Fetching document to display on page...");
       
       try {
         const loadingTask = pdfjsLib.getDocument(url);
         
-        // Track download/loading progress
         loadingTask.onProgress = function(progressData) {
           if (progressData.total > 0) {
             let percent = Math.round((progressData.loaded / progressData.total) * 100);
             updateProgress(percent);
           } else {
-            // Fallback animation if total size isn't immediately available
             updateProgress(50);
           }
         };
@@ -140,19 +144,33 @@
         pageNum = 1;
         
         await renderPage(pageNum);
-        setTimeout(hideModal, 400); // Hide smoothly after completion
+        setTimeout(hideModal, 400);
       } catch (error) {
         hideModal();
         console.error("Error loading PDF:", error);
-        alert("Could not load PDF. Make sure 'your-file.pdf' exists in the directory or check file path permissions.");
+        alert("Could not load PDF. Make sure PDF exists in the directory or check file path permissions.");
       }
     }
 
-    // Render individual page onto HTML5 Canvas
+    // Render individual page and scale it dynamically to fit browser screen boundaries
     async function renderPage(num) {
       if (!pdfDoc) return;
       const page = await pdfDoc.getPage(num);
-      const viewport = page.getViewport({ scale: scale });
+      
+      // Get container dimensions to fit page perfectly inside viewport area
+      const viewportContainer = document.getElementById('canvasViewport');
+      const containerWidth = viewportContainer.clientWidth - 40;
+      const containerHeight = viewportContainer.clientHeight - 40;
+
+      // Unscaled standard page viewport dimensions
+      const unscaledViewport = page.getViewport({ scale: 1.0 });
+      
+      // Calculate best scale ratio for height and width fit
+      const scaleX = containerWidth / unscaledViewport.width;
+      const scaleY = containerHeight / unscaledViewport.height;
+      const fitScale = Math.min(scaleX, scaleY);
+
+      const viewport = page.getViewport({ scale: fitScale });
       
       canvas.height = viewport.height;
       canvas.width = viewport.width;
@@ -174,7 +192,7 @@
       renderPage(pageNum);
     }
 
-    // Download PDF with custom progress popup simulation
+    // Download PDF with progress popup tracking
     async function downloadPDFWithProgress() {
       showModal("Preparing Download", "Fetching file for download...");
       updateProgress(20);
@@ -202,7 +220,6 @@
       } catch (err) {
         hideModal();
         console.error("Download failed:", err);
-        // Fallback direct trigger
         const a = document.createElement('a');
         a.href = defaultPdfUrl;
         a.download = 'document.pdf';
