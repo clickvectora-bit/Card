@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-    <title>PDF Responsive Web Viewer</title>
+    <title>PDF Web Viewer - Spaced Original Pages</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- PDF.js library to render PDF on HTML Canvas -->
@@ -44,12 +44,17 @@
   <!-- App Layout Container -->
   <div class="flex-1 flex overflow-hidden relative">
     
-    <!-- Main Workspace Area with ample padding from all sides -->
-    <main class="flex-1 bg-slate-200/70 checkerboard relative flex items-center justify-center overflow-hidden p-4 sm:p-8" id="workspaceContainer">
-      <div id="canvasViewport" class="absolute inset-4 sm:inset-8 flex items-center justify-center overflow-auto p-2">
-        <div id="canvasWrapper" class="relative shadow-2xl bg-white rounded-xl overflow-hidden border border-slate-300 flex items-center justify-center p-3 sm:p-4 gap-4 max-w-full max-h-full">
-          <canvas id="pdfCanvas1" class="max-w-full max-h-full object-contain shadow-sm"></canvas>
-          <canvas id="pdfCanvas2" class="max-w-full max-h-full object-contain shadow-sm hidden"></canvas>
+    <!-- Main Workspace Area with proper padding from all sides -->
+    <main class="flex-1 bg-slate-200/70 checkerboard relative flex items-center justify-center overflow-auto p-4 sm:p-10" id="workspaceContainer">
+      <div id="canvasViewport" class="min-h-full min-w-full flex items-center justify-center p-4">
+        <!-- Added explicit gap-6 (or gap-8) between canvas elements for spacing -->
+        <div id="canvasWrapper" class="relative flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-8 p-2 max-w-full">
+          <div class="bg-white p-2 shadow-2xl rounded-xl border border-slate-300 flex items-center justify-center">
+            <canvas id="pdfCanvas1" class="max-w-full object-contain block"></canvas>
+          </div>
+          <div class="bg-white p-2 shadow-2xl rounded-xl border border-slate-300 flex items-center justify-center hidden" id="canvasContainer2">
+            <canvas id="pdfCanvas2" class="max-w-full object-contain block"></canvas>
+          </div>
         </div>
       </div>
 
@@ -90,11 +95,9 @@
     let ctx1 = canvas1.getContext('2d');
     let canvas2 = document.getElementById('pdfCanvas2');
     let ctx2 = canvas2.getContext('2d');
+    let canvasContainer2 = document.getElementById('canvasContainer2');
 
-    // Default pre-loaded PDF file path or URL
-    const defaultPdfUrl = 'Final CV.pdf'; 
-
-    // Determine step count: 1 page for mobile screens (< 768px), 2 pages for desktop side-by-side
+    const defaultPdfUrl = 'your-file.pdf'; 
     let stepCount = window.innerWidth < 768 ? 1 : 2;
 
     window.onload = function() {
@@ -105,7 +108,7 @@
       let newStep = window.innerWidth < 768 ? 1 : 2;
       if (newStep !== stepCount) {
         stepCount = newStep;
-        pageNum = 1; // Reset to start when switching view modes
+        pageNum = 1; 
       }
       if (pdfDoc) {
         renderPages(pageNum);
@@ -158,55 +161,49 @@
       }
     }
 
-    // Render pages dynamically based on screen width (1 for mobile, 2 for desktop)
     async function renderPages(num) {
       if (!pdfDoc) return;
 
       stepCount = window.innerWidth < 768 ? 1 : 2;
-      const viewportContainer = document.getElementById('workspaceContainer');
+      const workspace = document.getElementById('workspaceContainer');
       
-      let containerWidth, containerHeight;
+      let maxW, maxH;
       if (stepCount === 2) {
-        containerWidth = (viewportContainer.clientWidth - 90) / 2;
-        containerHeight = viewportContainer.clientHeight - 80;
+        maxW = (workspace.clientWidth - 120) / 2;
+        maxH = workspace.clientHeight - 120;
       } else {
-        containerWidth = viewportContainer.clientWidth - 50;
-        containerHeight = viewportContainer.clientHeight - 80;
+        maxW = workspace.clientWidth - 80;
+        maxH = workspace.clientHeight - 120;
       }
 
-      // Render Page 1
+      // Render Page 1 with original proportions
       const page1 = await pdfDoc.getPage(num);
-      const unscaledV1 = page1.getViewport({ scale: 1.0 });
-      const scaleX1 = containerWidth / unscaledV1.width;
-      const scaleY1 = containerHeight / unscaledV1.height;
-      const fitScale1 = Math.min(scaleX1, scaleY1);
+      const unscaled1 = page1.getViewport({ scale: 1.0 });
+      let scale1 = Math.min(maxW / unscaled1.width, maxH / unscaled1.height);
+      const viewport1 = page1.getViewport({ scale: scale1 });
 
-      const viewport1 = page1.getViewport({ scale: fitScale1 });
       canvas1.height = viewport1.height;
       canvas1.width = viewport1.width;
       await page1.render({ canvasContext: ctx1, viewport: viewport1 }).promise;
 
       let displayEndNum = num;
 
-      // Render Page 2 if stepCount is 2 and second page exists
+      // Render Page 2 if enabled and available
       if (stepCount === 2 && num + 1 <= pdfDoc.numPages) {
-        canvas2.classList.remove('hidden');
+        canvasContainer2.classList.remove('hidden');
         const page2 = await pdfDoc.getPage(num + 1);
-        const unscaledV2 = page2.getViewport({ scale: 1.0 });
-        const scaleX2 = containerWidth / unscaledV2.width;
-        const scaleY2 = containerHeight / unscaledV2.height;
-        const fitScale2 = Math.min(scaleX2, scaleY2);
+        const unscaled2 = page2.getViewport({ scale: 1.0 });
+        let scale2 = Math.min(maxW / unscaled2.width, maxH / unscaled2.height);
+        const viewport2 = page2.getViewport({ scale: scale2 });
 
-        const viewport2 = page2.getViewport({ scale: fitScale2 });
         canvas2.height = viewport2.height;
         canvas2.width = viewport2.width;
         await page2.render({ canvasContext: ctx2, viewport: viewport2 }).promise;
         displayEndNum = num + 1;
       } else {
-        canvas2.classList.add('hidden');
+        canvasContainer2.classList.add('hidden');
       }
 
-      // Update page indicator text
       if (num === displayEndNum) {
         document.getElementById('currentPageNum').textContent = num;
       } else {
